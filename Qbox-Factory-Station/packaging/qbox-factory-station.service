@@ -1,0 +1,35 @@
+[Unit]
+Description=QBox Factory Station Agent (native BLE bridge for the Factory Panel)
+After=bluetooth.service dbus.service
+Wants=bluetooth.service
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=simple
+# Runs as the invoking technician's own user (set by install.sh via
+# systemctl --user, or edit to a dedicated system account) - needs access
+# to the session/system D-Bus bus that BlueZ is reachable on, same as any
+# other BlueZ client (bluetoothctl, GNOME's own Bluetooth settings).
+# WorkingDirectory is required: install.sh copies the station_agent/
+# package directly into this directory rather than pip-installing it, and
+# `python -m station_agent` only finds it via the CWD entry Python adds to
+# sys.path for -m invocations - a systemd user service's default CWD is
+# not this directory, so without this the unit crash-loops with
+# "No module named station_agent".
+WorkingDirectory=/opt/qbox-factory-station
+# A previous user/system installation may still have the same agent running.
+# Kill only QBox Station processes from this installation before binding the
+# dedicated loopback port; this makes the unit safely idempotent on upgrades.
+ExecStartPre=-/bin/sh -c '/usr/bin/pkill -TERM -f "/opt/qbox-factory-station/.venv/bin/python -m station_agent" || true'
+ExecStart=/opt/qbox-factory-station/.venv/bin/python -m station_agent --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+Environment=QBOX_STATION_ID=%H
+
+[Install]
+WantedBy=default.target

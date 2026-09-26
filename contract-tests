@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+Qbox-Hardware/.venv/bin/python -m pytest -q Qbox-Hardware/tests/test_connectivity_contract_envelope.py Qbox-Hardware/tests/test_ble_secure_protocol.py Qbox-Hardware/tests/test_telemetry_agent.py
+cd Qbox-Backend
+venv/bin/python manage.py check

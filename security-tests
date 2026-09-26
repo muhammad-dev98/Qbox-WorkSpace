@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/Qbox-Hardware"
+./scripts/security-check.sh
+./.venv/bin/python -m pytest -q tests/test_ble_secure_protocol.py tests/test_ble_provisioning.py

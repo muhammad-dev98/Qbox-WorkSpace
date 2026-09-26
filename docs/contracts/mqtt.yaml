@@ -1,0 +1,13 @@
+version: 1
+namespace: qbox/v1/devices/{device_uid}
+topics:
+  state: state
+  events: events
+  commands: commands
+  command_ack: command-ack
+  telemetry: telemetry
+  heartbeat: heartbeat
+envelope:
+  required: [schema_version, message_id, device_uid, message_type, timestamp, payload]
+  qos: 1
+  tls: required

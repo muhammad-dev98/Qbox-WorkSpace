@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/Qbox-Backend"
+venv/bin/python manage.py check
+venv/bin/python manage.py makemigrations hardware_devices cameras --check --dry-run
+venv/bin/python manage.py test hardware_devices.tests.test_connectivity_control_plane hardware_devices.tests.test_observability_platform cameras.test_camera_control_plane

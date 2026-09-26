@@ -1,0 +1,5 @@
+version: 1
+transport: BlueZ_GATT
+security: authenticated_encrypted_session_required
+operations: [authorize, device_info, scan_start, scan_progress, scan_result, scan_complete, wifi_status, configure_wifi, diagnostics, error]
+framing: message_id_sequence_chunk_index_total_chunks_checksum

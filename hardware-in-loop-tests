@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/Qbox-Hardware"
+if ! command -v busctl >/dev/null 2>&1; then
+  echo "busctl is required for hardware-in-loop tests" >&2
+  exit 2
+fi
+if ! busctl --system status org.freedesktop.NetworkManager >/dev/null 2>&1; then
+  echo "NetworkManager D-Bus service is unavailable on this host" >&2
+  exit 2
+fi
+if ! busctl --system status org.bluez >/dev/null 2>&1; then
+  echo "BlueZ D-Bus service is unavailable on this host" >&2
+  exit 2
+fi
+./.venv/bin/python -m pytest -q tests/test_raspberry_pi_hardware_preflight.py
+qbox network scan --json >/tmp/qbox-hil-wifi-scan.json
+qbox ble status --json >/tmp/qbox-hil-ble-status.json

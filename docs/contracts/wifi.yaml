@@ -1,0 +1,7 @@
+version: 1
+states: [IDLE, REQUESTED, VALIDATING, SCANNING, CONFIGURING, CONNECTING, DHCP, VERIFYING_DNS, VERIFYING_INTERNET, VERIFYING_MQTT, COMMITTING, COMMITTED, ROLLING_BACK, ROLLED_BACK, FAILED]
+rules:
+  - candidate_profile_before_commit
+  - preserve_known_good_profile_on_failure
+  - no_plaintext_credentials_in_cloud_or_logs
+  - NetworkManager_is_authoritative
