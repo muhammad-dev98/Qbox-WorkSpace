@@ -1,9 +1,0 @@
-# The station's Linux BlueZ implementation is validated against the 0.x API.
-# Do not silently install Bleak 1.x/2.x/3.x: major-version changes can alter
-# Device1 transport selection and turn LE GATT connects into BR/EDR profile
-# errors (org.bluez.Error.NotAvailable).
-bleak==0.22.3
-aiohttp>=3.9
-cryptography>=42
-openhtf>=1.5,<2
-requests>=2.31
