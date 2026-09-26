@@ -1,0 +1,15 @@
+[submodule "FrontEnd-Panels"]
+	path = FrontEnd-Panels
+	url = git@github-qbox:muhammad-dev98/Qbox-Frontend-Panels.git
+[submodule "Mobile-Apps"]
+	path = Mobile-Apps
+	url = git@github-qbox:muhammad-dev98/Qbox-Mobile-Apps.git
+[submodule "Qbox-Backend"]
+	path = Qbox-Backend
+	url = git@github-qbox:muhammad-dev98/Qbox-Backend.git
+[submodule "Qbox-Hardware"]
+	path = Qbox-Hardware
+	url = git@github-qbox:muhammad-dev98/Qbox-Hardware.git
+[submodule "Qbox-Factory-Station"]
+	path = Qbox-Factory-Station
+	url = git@github-qbox:muhammad-dev98/Qbox-Factory-Station.git
