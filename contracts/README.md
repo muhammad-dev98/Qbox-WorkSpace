@@ -10,6 +10,10 @@ The repositories are independent Git repositories. Do not share implementation c
 - `mqtt/device-control-plane-v1.md` - canonical MQTT topic namespace and envelope requirements.
 - `connectivity/v1.md` - production connectivity boundary for backend authorization/state/audit, device-side BLE/Wi-Fi/NetworkManager behavior, and MQTT connectivity events/commands.
 
+## Proposed Contracts
+
+- `api/locker-device-v2.md` - PROPOSAL (not approved; do not implement until the hardware repository approves): Ed25519-signed one-time access tokens with offline verification, device keys, batched door events, HTTPS command fallback, offline sync, evidence upload, multi-compartment state; v1 stays supported in parallel.
+
 ## Versioning Rules
 
 - Additive fields are backward compatible when consumers can ignore unknown fields.

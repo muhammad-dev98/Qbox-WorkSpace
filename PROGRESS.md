@@ -1,7 +1,7 @@
 # QBox master prompt — progress
 
 Spec: workspace `QBOX_AGENT_MASTER_PROMPT.md` (§15 owner decisions override earlier sections).
-Repos: `Qbox-Backend` (Release R branch `feat/shipment-platform-phase2`; Phase 1+ branch `feat/master-prompt-phase1`), `Qbox-Frontend-Panels` (`main` + uncommitted work by another author).
+Repos: `Qbox-Backend` — work happens on local **`main`** (owner, 2026-10-04: Release R merged into local main; **never push main: it deploys**). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work is on branches.
 Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Frontend-Panels/docs/CURRENT_STATE.md`,
 `Qbox-Backend/docs/adr/0001-evolve-existing-platform-to-master-prompt.md`.
 
@@ -10,9 +10,13 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | Phase | State |
 |---|---|
 | 0 Inspect, current state, gap list, ADR, plan | ✅ documents written · test/lint/CI setup moved to Phase 1 (backend has no lint and no CI test job) |
-| Baseline | pending: full backend suite on a fresh PostgreSQL DB at `598712bd` |
-| Release R hotfixes | pending owner approval of each diff (see below) |
-| 1–13 | not started |
+| Baseline | ✅ 2026-10-04, fresh PostgreSQL 16 (throwaway container), `598712bd` (= backend `main` code after the local Release R merge): **Ran 992, FAILED (errors=1, skipped=9, expected failures=1)**, 29 min, `--parallel 4`. The one error is a date time-bomb (`factory_ops…test_customer_is_notified_on_schedule` hardcoded 2026-10-01); fixed on `main` in `900d869e`. `check` clean, `makemigrations --check` no changes. |
+| Release R hotfixes | a, b, c ready on their own branches, **awaiting owner approval** (see below) |
+| 1 Foundations | ✅ backend `main` `347f141d`…`9de2ce4c`. Gate at `0c9b67db` (fresh DB, minimal CI env): 1040 ran, 7 failed — 6 from missing MQTT dummy creds in the CI env, 1 idempotency gap; both fixed in `9de2ce4c`, affected tests re-run OK |
+| 1b FE merchant minimal fix | ✅ frontend branch `fix/merchant-canonical-shipments` (5 commits; lint/typecheck/34 unit/build/30 e2e pass) |
+| 2 Hardware | ✅ backend `727870a3`…`7da03ce8`; FE branch `feat/factory-identity-stickers` (7 commits; lint/typecheck/33 unit/build/87 e2e pass). Gate at `e87fc7bc` (fresh DB, CI env, check + makemigrations + ruff clean): **1075 ran, 1 failure** (status-write guard vs derived compartment status, fixed in `7da03ce8`); later commits verified with factory_ops (301 OK) and the guard tests |
+| 3 Access tokens v2 | contract proposal written (`contracts/api/locker-device-v2.md`), awaiting hardware approval; no code |
+| 4–13 | not started |
 
 ## Key finding
 
@@ -42,18 +46,31 @@ Most of the master prompt already exists (backend milestones M0–M8, ~990 passi
 
 | # | Fix | State |
 |---|---|---|
-| a | Release consumed credit (with ledger reversal) when the card part of a split payment fails or expires (`shipping/services/orders.py` FAILED and expiry paths) | not started |
-| b | Replace floored, hardcoded VAT in `commerce/services.py` with `shipping/services/vat.py` | not started |
+| a | Return consumed credit when the card part of a split payment fails or expires; FAILED status was never persisted (rolled back with the error) — fixed too; retry re-consumes credit; late success re-applies or refunds. No ledger reversal needed (credit usage is journaled only at payment). D54 | `hotfix/release-r-credit-release` `3d3a3192` · shipping+commerce+financial Ran 125 OK |
+| b | Commerce product quote VAT: shared half-up rule instead of floor + hardcoded rate | `hotfix/release-r-commerce-vat` `68d0c5ba` · Ran 120 OK |
+| c | Payment verified after its order was cancelled was kept (order flipped back to PAID; D20 orphan refund unreachable) | `hotfix/release-r-orphan-payment` `f3f2dd0a` · regression test fails without fix · Ran 118 OK |
+
+On approval: cherry-pick onto `feat/shipment-platform-phase2`, then merge into `main` (main already has c's fix via the state machines; a will conflict lightly with the Phase 1 state-machine edits in `orders.py`).
 
 ## Frontend rules for the uncommitted work
 
 The author commits it to their own branch. When it lands: revert the sessionStorage token store (memory + httpOnly
 refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping interceptor with a correct base URL.
 
+## Findings that need the owner (not code)
+
+1. **Secrets in git history (backend):** older commits of `.env.prod` (e.g. `ec246802`, `0322465b`) contain non-empty `SECRET_KEY`, `MOYASAR_SECRET_KEY`, `MOYASAR_WEBHOOK_SECRET`, WhatsApp `ACCESS_TOKEN`, `SPL_API_KEY`, `EMQX_DASHBOARD_PASSWORD`. The repo is on GitHub. Rotate all of them; purging history is a separate, destructive decision.
+2. **VPS (read-only check 2026-10-04):** deployed `main` `1312ecfa` (Release R not deployed), 0 pending migrations, all containers healthy, Celery 1664/1664 tasks OK in 2 h, 5/6 lockers online, only DisallowedHost scanner errors. **`DEBUG=True` with `QBOX_REAL_CUSTOMER_DATA` unset is still live (D29).** Untracked private keys sit in the VPS repo directory (`emqx/certs/client-key.pem`, `client.key`).
+3. **Door sensing (hardware):** the hardware docs say the second solenoid wire reports `verified_state=UNKNOWN`; DELIVERED_TO_QBOX depends on CLOSED_CONFIRMED, so v1 already relies on door sensing the hardware may not have (v2 proposal Q5).
+4. Portal throttling uses `REMOTE_ADDR`; confirm nginx sets the real client IP (otherwise all drivers share one source). Phase 13.
+
 ## Open questions (owner)
 
-1. **Hardware approval** of locker-device-v1 is still pending; v2 (offline Ed25519) needs the hardware team too.
-2. Carried over: accountant sign-off on VAT mode/revenue recognition; SMSA/AfterShip/Moyasar staging credentials.
+1. **`QBOX_COMPARTMENT_SHARING`** default `allow` keeps Qbox Home accepting several parcels behind its one door; `strict` = one parcel per compartment (Home then accepts one at a time). ADR 0004.
+2. Compartment inner dimensions and multi-compartment `component_key`s are placeholders until the hardware team confirms (Business/Pro hardware).
+3. Owner code TTL: backend 30 min vs master prompt 10 min (v2 Q-B2). Kept 30, now a runtime setting.
+4. **Hardware approval** of locker-device-v1 is still pending; v2 (offline Ed25519) needs the hardware team too.
+5. Carried over: accountant sign-off on VAT mode/revenue recognition; SMSA/AfterShip/Moyasar staging credentials.
 
 ## Decisions log
 
@@ -66,3 +83,9 @@ refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping intercep
 - 2026-10-04 Owner: identity sticker carries only the portal URL + `?s=`; AES-GCM device QR is provisioning-only (ADR 0002, Phase 2 start).
 - 2026-10-04 Owner: minimal FE merchant fix (off 410 routes) runs between Phase 1 and Phase 2.
 - 2026-10-04 Owner: locker-device-v2 is written as a proposal now; implemented only after hardware approval.
+- 2026-10-04 Owner: continue everything on backend `main` (Release R merged locally, nothing pushed).
+- 2026-10-04 drf-yasg kept: 61 files / 325 call sites feed drf-spectacular through it (ADR 0003).
+- 2026-10-04 SPL key: `SPL_API_KEY_LOCATION` query (default, current SPL behaviour) or header once SPL confirms; never logged.
+- 2026-10-04 New app named `platform_core` (the hardware runtime already has `qbox_platform`).
+- 2026-10-04 Idempotency-Key stays optional (existing mobile clients) but every canonical state-changing POST honours it.
+- 2026-10-04 qbox_codes keep being generated at device self-registration, not pre-generated per batch (ADR 0004).
