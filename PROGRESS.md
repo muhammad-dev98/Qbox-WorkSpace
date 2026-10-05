@@ -1,7 +1,16 @@
 # QBox master prompt — progress
 
 Spec: workspace `QBOX_AGENT_MASTER_PROMPT.md` (§15 owner decisions override earlier sections).
-Repos: `Qbox-Backend` — work happens on local **`main`** (owner, 2026-10-04: Release R merged into local main; **never push main: it deploys**). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work is on branches.
+Phases spec: `QBOX_PHASES_3_TO_13_PROMPT.md` (overrides the master prompt where they differ).
+Repos: `Qbox-Backend` — **one branch per phase**, merged into `integration/master-phases`; local `main` = `origin/main` = `1312ecfa` (reset 2026-10-05, Phase 1–2 work kept on `feat/master-phases-1-2`, pushed as backup). **Never push main: it deploys** (local pre-push hook refuses main/master; override `QBOX_ALLOW_PUSH_TO_MAIN=1`). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work is on branches in temporary worktrees.
+
+## How gates run (2026-10-05, owner: no local Docker, all tests on the VPS)
+
+Per run the branch is uploaded with `git archive` to `/root/qbox-ci/runs/<name>` on the VPS and `/root/qbox-ci/run-gate.sh <run-dir> 2`
+runs: `check`, `makemigrations --check`, ruff (repo gate + strict list), full suite `--parallel 2` on a **fresh** test database
+(`qbox_ci_<run>_test`) in the existing `qbox-test-db` container, capped at 1.5 CPU / 3 GB so production keeps headroom (VPS has 2 cores).
+Image `qbox-ci-base` = the dev image + test tools (arabic-reshaper, python-bidi, ruff 0.14.0, tblib). Env: `/root/qbox-ci/env.base` (chmod 600, CI-only values).
+Never touches `/var/www/Qbox-Back-End`. A full run takes ~37 min.
 Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Frontend-Panels/docs/CURRENT_STATE.md`,
 `Qbox-Backend/docs/adr/0001-evolve-existing-platform-to-master-prompt.md`.
 
@@ -11,12 +20,16 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 |---|---|
 | 0 Inspect, current state, gap list, ADR, plan | ✅ documents written · test/lint/CI setup moved to Phase 1 (backend has no lint and no CI test job) |
 | Baseline | ✅ 2026-10-04, fresh PostgreSQL 16 (throwaway container), `598712bd` (= backend `main` code after the local Release R merge): **Ran 992, FAILED (errors=1, skipped=9, expected failures=1)**, 29 min, `--parallel 4`. The one error is a date time-bomb (`factory_ops…test_customer_is_notified_on_schedule` hardcoded 2026-10-01); fixed on `main` in `900d869e`. `check` clean, `makemigrations --check` no changes. |
-| Release R hotfixes | a, b, c ready on their own branches, **awaiting owner approval** (see below) |
+| Release R hotfixes | approved; a `b7605b4e`, b `68d0c5ba`, c `d9945518` pushed on their branches (off `598712bd`), one PR each; merge forward into integration after Release R is deployed |
 | 1 Foundations | ✅ backend `main` `347f141d`…`9de2ce4c`. Gate at `0c9b67db` (fresh DB, minimal CI env): 1040 ran, 7 failed — 6 from missing MQTT dummy creds in the CI env, 1 idempotency gap; both fixed in `9de2ce4c`, affected tests re-run OK |
 | 1b FE merchant minimal fix | ✅ frontend branch `fix/merchant-canonical-shipments` (5 commits; lint/typecheck/34 unit/build/30 e2e pass) |
 | 2 Hardware | ✅ backend `727870a3`…`7da03ce8`; FE branch `feat/factory-identity-stickers` (7 commits; lint/typecheck/33 unit/build/87 e2e pass). Gate at `e87fc7bc` (fresh DB, CI env, check + makemigrations + ruff clean): **1075 ran, 1 failure** (status-write guard vs derived compartment status, fixed in `7da03ce8`); later commits verified with factory_ops (301 OK) and the guard tests |
+| Phase 1–2 re-gate | ✅ `19065122` (`feat/master-phases-1-2`), fresh DB: **Ran 1076, OK** |
 | 3 Access tokens v2 | contract proposal written (`contracts/api/locker-device-v2.md`), awaiting hardware approval; no code |
-| 4–13 | not started |
+| 4 Carriers | ✅ `phase/4-carriers` `04fd004c` (ADR 0007). **VPS gate 2026-10-05: Ran 1141, OK (skipped 23, expected failures 1), 2038 s**; check / makemigrations / ruff clean. `integration/master-phases` fast-forwarded to it |
+| 6 Payments | `phase/6-payments` `3208573e` (ADR 0008): one gateway interface, saved cards + consent, refund requests (maker-checker, wallet), charge adjustments, disputes + ledger, legacy-route usage report. Moyasar void/tokenize/saved-card charge are stubs until Moyasar confirms the APIs. Credit-hold generalization waits for the hotfix merge-forward. VPS gate running |
+| §1 Hardware reality | `phase/hw-reality` (on Phase 6): capability flags, `plate_number` + one code lookup (ADR 0005), printed-QR check + unverified-plates report + plate order sheet, single-door rules (occupancy, Qbox full / won't fit, collection confirmation, pickup warnings + owner block policy), single door always allocated (ADR 0004 amended) · FE `feat/factory-plates-single-door` (8 commits: lint / typecheck / 56 unit / build / 90 e2e route checks pass). Backend gate next |
+| 5, 7–13 | not started |
 
 ## Key finding
 
@@ -42,20 +55,23 @@ Most of the master prompt already exists (backend milestones M0–M8, ~990 passi
 | 12 FE Superadmin + notifications | carriers, pricing, finance, settings, simulators, disputes, fleet; notification provider interface, AR templates, preferences |
 | 13 Hardening | security review, retention jobs, JSON logs, load tests, `docs/RELEASE_CHECKLIST.md` |
 
-## Release R hotfixes (proposed; each diff shown to the owner before commit)
+## Release R hotfixes (approved 2026-10-05)
 
 | # | Fix | State |
 |---|---|---|
-| a | Return consumed credit when the card part of a split payment fails or expires; FAILED status was never persisted (rolled back with the error) — fixed too; retry re-consumes credit; late success re-applies or refunds. No ledger reversal needed (credit usage is journaled only at payment). D54 | `hotfix/release-r-credit-release` `3d3a3192` · shipping+commerce+financial Ran 125 OK |
+| a | Return consumed credit when the card part of a split payment fails or expires (+ FAILED status persisted). Owner: credit holds journaled on `2150-CUSTOMER-CREDIT-HOLDS` and reversed on release; audit event (`AUTOMATIC_REFUND`) for every automatic refund | `hotfix/release-r-credit-release` `b7605b4e` |
 | b | Commerce product quote VAT: shared half-up rule instead of floor + hardcoded rate | `hotfix/release-r-commerce-vat` `68d0c5ba` · Ran 120 OK |
-| c | Payment verified after its order was cancelled was kept (order flipped back to PAID; D20 orphan refund unreachable) | `hotfix/release-r-orphan-payment` `f3f2dd0a` · regression test fails without fix · Ran 118 OK |
-
-On approval: cherry-pick onto `feat/shipment-platform-phase2`, then merge into `main` (main already has c's fix via the state machines; a will conflict lightly with the Phase 1 state-machine edits in `orders.py`).
+| c | Payment verified after its order was cancelled is refunded (was kept). `repair_orphan_payment_postings` command for orders already hit (dry run by default; `--commit` needs `QBOX_ORPHAN_REPAIR_APPROVED=<label>`) | `hotfix/release-r-orphan-payment` `d9945518` · regression test fails without fix |
 
 ## Frontend rules for the uncommitted work
 
 The author commits it to their own branch. When it lands: revert the sessionStorage token store (memory + httpOnly
 refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping interceptor with a correct base URL.
+
+## Temporary worktrees (owner deletes)
+
+Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad/fe-plates` (`feat/factory-plates-single-door`).
+`…` = `/tmp/claude-1000/-home-hassaanqazi-Documents-Qbox-WorkSpace/c9283964-79bc-4f18-8d8b-b350a1983672`. Earlier worktrees were lost in a reboot and pruned.
 
 ## Findings that need the owner (not code)
 
@@ -71,6 +87,9 @@ refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping intercep
 3. Owner code TTL: backend 30 min vs master prompt 10 min (v2 Q-B2). Kept 30, now a runtime setting.
 4. **Hardware approval** of locker-device-v1 is still pending; v2 (offline Ed25519) needs the hardware team too.
 5. Carried over: accountant sign-off on VAT mode/revenue recognition; SMSA/AfterShip/Moyasar staging credentials.
+6. **Legacy routes** (`Qbox-Backend/docs/shipments/LEGACY_ROUTE_USAGE_2026-10.md`): zero calls for legacy payments checkout/detail/webhook, wallets, ledger, refunds, invoices, payment-methods, pricing, commissions, revenue; promotions, subscriptions and merchant payouts are in use. Retiring needs owner approval and a check of the webhook URLs set in the Moyasar dashboard.
+7. Accountant: names / reporting lines of new ledger accounts 1300 disputed funds, 5400 chargeback losses, 2150 customer credit holds.
+8. Hardware: confirm door sensor / lock feedback / evidence camera per model (capability flags default to false); plate number format.
 
 ## Decisions log
 
@@ -89,3 +108,9 @@ refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping intercep
 - 2026-10-04 New app named `platform_core` (the hardware runtime already has `qbox_platform`).
 - 2026-10-04 Idempotency-Key stays optional (existing mobile clients) but every canonical state-changing POST honours it.
 - 2026-10-04 qbox_codes keep being generated at device self-registration, not pre-generated per batch (ADR 0004).
+- 2026-10-05 Owner: branch per phase → `integration/master-phases`; main reset to `origin/main`; hotfix branches from `598712bd`.
+- 2026-10-05 Owner: ledger reversals for hotfixes a/c = journal credit holds + repair command.
+- 2026-10-05 Owner: shared compartment mode kept; drf-yasg frozen (ADR 0006, no new usage, test enforces).
+- 2026-10-05 Owner: no local Docker; every gate runs on the VPS (see "How gates run").
+- 2026-10-05 Single-door Qbox always allocates its door; `QBOX_COMPARTMENT_SHARING=strict` only affects multi-compartment models (ADR 0004 amended).
+- 2026-10-05 Printed-QR check takes the scanned text; photos are decoded in the browser (`BarcodeDetector`), no image library added to the backend.
