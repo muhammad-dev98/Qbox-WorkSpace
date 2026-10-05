@@ -12,6 +12,11 @@ Status: **PROPOSAL — not approved; do not implement on either side until the h
   retention. The hardware repository owns scanning, local verification, actuation, the local used-nonce
   store, event capture, evidence capture and offline behavior. Neither side imports the other's code
   (`AGENTS.md` §3).
+- Server status (informative, 2026-10-05, backend branch `phase/3-door-proof`, not deployed): per the owner's
+  phases prompt, the backend built the parts that need no firmware change. §6 batched events are accepted
+  **provisionally** at `/api/v1/shipments/portal/device/events/` (next to the v1 device routes, §1.4 still open);
+  no device uses it and it will follow whatever this review decides. Door proof levels and security incidents
+  are server-side only (backend ADR 0009). Nothing in §3–§5, §7–§9 is implemented.
 - Marker convention: **`UNKNOWN — VERIFY`** marks anything this document could not confirm from the
   backend code or the hardware repository's docs. The hardware team must resolve these before approval.
 
