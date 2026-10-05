@@ -2,7 +2,16 @@
 
 Spec: workspace `QBOX_AGENT_MASTER_PROMPT.md` (§15 owner decisions override earlier sections).
 Phases spec: `QBOX_PHASES_3_TO_13_PROMPT.md` (overrides the master prompt where they differ).
-Repos: `Qbox-Backend` — **one branch per phase**, merged into `integration/master-phases`; local `main` = `origin/main` = `1312ecfa` (reset 2026-10-05, Phase 1–2 work kept on `feat/master-phases-1-2`, pushed as backup). **Never push main: it deploys** (local pre-push hook refuses main/master; override `QBOX_ALLOW_PUSH_TO_MAIN=1`). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work is on branches in temporary worktrees.
+Repos: `Qbox-Backend` — **work directly on `main`** (owner decision 2026-10-05, rules below). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work stays on branches until the owner says otherwise.
+
+## Rules for backend `main` (owner, 2026-10-05) — every push deploys to the VPS, which has real customer data
+
+1. Commit on local `main` in small, logical commits. The pre-push hook stays; use `QBOX_ALLOW_PUSH_TO_MAIN=1` only when rule 2 is met.
+2. Push only when the full VPS gate (check, makemigrations, ruff, full suite on a fresh DB) passed for the **exact commit** being pushed. Never push with a failing test. About one push per finished phase or fix.
+3. Before a push that contains migrations: `pg_dump` production on the VPS to `/root/backups/<date>-<commit>.sql.gz` and confirm the size. Migrations backward compatible (additive first, no column drops in the same release).
+4. After every push: wait for the deploy, check health/live, health/ready, 0 pending migrations, web/worker/beat logs for 15 minutes, smoke-test the new endpoints; report.
+5. A bad deploy: `git revert`, gate, push. Never force-push or rewrite `main`.
+6. Frontend stays on branches until the other author's uncommitted frontend `main` files are committed (owner will say).
 
 ## How gates run (2026-10-05, owner: no local Docker, all tests on the VPS)
 
@@ -29,6 +38,9 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | 4 Carriers | ✅ `phase/4-carriers` `04fd004c` (ADR 0007). **VPS gate 2026-10-05: Ran 1141, OK (skipped 23, expected failures 1), 2038 s**; check / makemigrations / ruff clean. `integration/master-phases` fast-forwarded to it |
 | 6 Payments | `phase/6-payments` `3208573e` (ADR 0008): one gateway interface, saved cards + consent, refund requests (maker-checker, wallet), charge adjustments, disputes + ledger, legacy-route usage report. Moyasar void/tokenize/saved-card charge are stubs until Moyasar confirms the APIs. Credit-hold generalization waits for the hotfix merge-forward. VPS gate running |
 | §1 Hardware reality | `phase/hw-reality` (on Phase 6): capability flags, `plate_number` + one code lookup (ADR 0005), printed-QR check + unverified-plates report + plate order sheet, single-door rules (occupancy, Qbox full / won't fit, collection confirmation, pickup warnings + owner block policy), single door always allocated (ADR 0004 amended) · FE `feat/factory-plates-single-door` (8 commits: lint / typecheck / 56 unit / build / 90 e2e route checks pass). Backend gate next |
+| `main` gate 2026-10-05 | owner merged the phase chain into `main` (`45ea9399`, deployed; tree = `phase/3-door-proof` `2dacdd44`). VPS gate: **Ran 1208, 4 failures + 2 errors** — 3 root causes, incl. a live 500 on `confirm-in-qbox` (FOR UPDATE on a nullable join). Fixed in `1bdca40a` (`fix/main-gate-failures`); targeted 198 OK; full gate running. Deploy check of `45ea9399`: healthy, 0 pending migrations, no errors, new beat jobs run |
+| 3 (no firmware) | ✅ in `main`: proof levels, driver door-closed, owner confirmation, SecurityIncident + back office, batched events (provisional, accepted by owner), token_format (ADR 0009). Remainder waits for hardware approval |
+| Release R hotfixes on `main` | cherry-picked onto `1bdca40a` (local, not pushed): b VAT; c repair command + audit (c's fix and test were already in `main` via Phase 1); a credit release + 2150 holds, merged through the Phase 1 state machines (no raw status writes). Credit-hold overlap with Phase 6: none needed — adjustment orders carry no credit and credit-paid adjustments post immediately. **Production dry run of `repair_orphan_payment_postings` (read-only session): affected orders 0.** No migrations |
 | 5, 7–13 | not started |
 
 ## Key finding
@@ -55,7 +67,7 @@ Most of the master prompt already exists (backend milestones M0–M8, ~990 passi
 | 12 FE Superadmin + notifications | carriers, pricing, finance, settings, simulators, disputes, fleet; notification provider interface, AR templates, preferences |
 | 13 Hardening | security review, retention jobs, JSON logs, load tests, `docs/RELEASE_CHECKLIST.md` |
 
-## Release R hotfixes (approved 2026-10-05)
+## Release R hotfixes (approved 2026-10-05; Release R is on `main`, so they go to `main` next)
 
 | # | Fix | State |
 |---|---|---|
@@ -67,6 +79,11 @@ Most of the master prompt already exists (backend milestones M0–M8, ~990 passi
 
 The author commits it to their own branch. When it lands: revert the sessionStorage token store (memory + httpOnly
 refresh cookie per ARCHITECTURE.md) and replace the `/api/v1`-stripping interceptor with a correct base URL.
+
+## Branch clean-up (pending owner OK)
+
+Remote branches merged into `main`, to delete after the owner confirms: `phase/*`, `feat/master-phases-1-2`, `integration/master-phases`,
+`chore/owner-followups`, `feat/master-prompt-phase1`, `fix/main-gate-failures` (after merge). Frontend `feat/factory-plates-single-door` pushed as a backup branch (no merge).
 
 ## Temporary worktrees (owner deletes)
 
@@ -114,3 +131,6 @@ Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad
 - 2026-10-05 Owner: no local Docker; every gate runs on the VPS (see "How gates run").
 - 2026-10-05 Single-door Qbox always allocates its door; `QBOX_COMPARTMENT_SHARING=strict` only affects multi-compartment models (ADR 0004 amended).
 - 2026-10-05 Printed-QR check takes the scanned text; photos are decoded in the browser (`BarcodeDetector`), no image library added to the backend.
+- 2026-10-05 Owner: backend work directly on `main` under the "Rules for backend main" (replaces branch-per-phase); frontend stays on branches.
+- 2026-10-05 Owner: provisional v2 batched-events endpoint accepted as is.
+- 2026-10-05 `QBOX_DEGRADED_OWNER_CONFIRMATION` (default on): owner prompt for DEGRADED deliveries, switchable without a deploy.
