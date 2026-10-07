@@ -51,7 +51,7 @@ Nothing found:
 - the `qbox.E001` system check only applies once `QBOX_REAL_CUSTOMER_DATA=true`.
 Login, OTP, portal, Swagger and static assets do not depend on DEBUG.
 
-## Step 1 — DEBUG off (only this)
+## Step 1 — DEBUG off (only this) — **DONE 2026-10-07 03:30 UTC**, all checks passed (`docs/reports/STABILIZATION_2026-10-07.md`)
 
 1. Backup: run `/root/qbox-ops/backup-daily.sh` and confirm the `ok` line in `/var/log/qbox-backup.log`.
 2. `cd /var/www/Qbox-Back-End && cp -p .env.development /root/backups/env.development.$(date -u +%Y%m%d-%H%M) && chmod 600 .env.development`

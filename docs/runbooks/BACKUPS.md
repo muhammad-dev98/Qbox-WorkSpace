@@ -15,7 +15,33 @@
 
 First run 2026-10-07 02:27 UTC: 26 s, 18 MB database dump, 24 KB files.
 
-## Off-server copy — decision needed
+## Off-server copy — Backblaze B2 (owner decision 2026-10-07)
+
+Status: **waiting for the bucket and an application key limited to it** (owner creates them).
+Plan once they exist:
+- `rclone` on the VPS with a `b2` remote (bucket-scoped key) wrapped in an `rclone crypt` remote. File contents and
+  names are encrypted on the VPS before upload; Backblaze only ever sees ciphertext.
+- The crypt **password and salt** are generated once and given to the owner once to keep in the password manager. On
+  the VPS they exist only inside root's `rclone.conf` (`600`). Losing them makes the off-site copies unreadable: they
+  are the only thing that must survive a total loss of the VPS.
+- After every daily run: `rclone copy /root/backups/daily b2crypt:daily` plus a weekly `rclone check`. Bucket lifecycle
+  rule: keep 30 days of file versions.
+
+## Restore when the VPS is gone
+
+You need: a new server with Docker, the Git repository, the Backblaze bucket name + key, and the crypt password +
+salt from the password manager.
+1. Install `rclone` and recreate the two remotes (`rclone config`): `b2` (account id + application key) and `b2crypt`
+   (type crypt, remote `b2:<bucket>`, the same password and salt).
+2. `rclone copy b2crypt:daily ./restore --max-age 48h` and `sha256sum -c qbox-*.sha256`.
+3. Clone the backend, put back `.env.development` (rebuild it from the password manager / rotate every secret: a
+   lost server means the old secrets must be treated as exposed), start only `db`:
+   `docker compose -f docker-compose.development.yml up -d db`.
+4. `docker exec -i qbox-development-db pg_restore -U <user> -d qbox_development --no-owner < restore/qbox-db-….dump`
+5. Start everything with `./deploy.sh` (it runs migrations: there should be none pending), restore files from
+   `qbox-files-….tar.gz` into the MinIO volume and `media/`, point DNS to the new server, check `/health/ready/`.
+
+## Off-server copy — options considered
 
 A backup that only lives on the VPS is lost with the VPS. Options:
 
@@ -48,3 +74,10 @@ Restored `qbox-db-20261007-0227-c384f7c3.dump` into a throwaway PostgreSQL 16 on
 `/root/backups/20261005-0650-cda3b693.sql.gz` (manual, before the Phase 5 deploy) and `/root/backups/old-dbs/`
 (old `smart_locker` database `qbox_db` — 103 tables; the empty `smartlocker` cluster; the dropped
 `qbox_development_test`), all also copied to `~/qbox-backups/old-dbs/` with verified checksums.
+
+## Retention of the old project dumps (owner decision 2026-10-07)
+
+`smart_locker_postgres_data-20261007.sql.gz` (old `qbox_db`, 103 tables) and the empty
+`smartlocker_postgres_data-20261007.sql.gz`: **keep 90 days, delete on 2027-01-05**.
+- VPS: automatic, `/etc/cron.d/qbox-old-dump-expiry` deletes them on or after 2027-01-05.
+- This machine: **delete `~/qbox-backups/old-dbs/smart_locker_*` and `smartlocker_*` by hand on 2027-01-05.**
