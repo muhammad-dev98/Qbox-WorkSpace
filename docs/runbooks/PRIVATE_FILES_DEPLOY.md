@@ -15,7 +15,10 @@ What the batch changes (Qbox-Backend):
 
 Paths below: `APP=/var/www/Qbox-Back-End`.
 
-## 1. Before the push (owner pushes after this)
+## 1. Before the push (owner pushes after this) — DONE 2026-10-07 06:05 UTC
+
+Result: backup `qbox-db-20261007-0602-c384f7c3.dump` (17.7 MB, checksums OK); `uploads/` 60 files (no `.py`),
+`private_media/` 6 files. `deploy.sh` uses `git reset --hard`, which leaves the untracked folders alone.
 
 Copy, don't move — the live containers still read `media/` until the deploy finishes.
 

@@ -20,7 +20,7 @@ Latest full status: `docs/reports/STATUS_2026-10-07.md` (verified 2026-10-07).
 ## How gates run — SUPERSEDED 2026-10-05: tests must NOT run on the VPS any more
 
 The VPS gates below triggered Hostinger's 20% CPU cap and a production outage on 2026-10-05. `/root/qbox-ci` was removed.
-Gates move to GitHub Actions once `gh` is logged in on this machine. The owner runs every push to `main`.
+Gates run on GitHub Actions (gh logged in 2026-10-07): push `gate/<sha>` for an exact commit, or `gh workflow run test.yml --ref gate/<sha>`. The owner runs every push to `main`.
 
 Historical method:
 
@@ -36,10 +36,12 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 
 | Commit | What | Run link | Result |
 |---|---|---|---|
-| `c384f7c3` | current `main` (closes the Phase 5 gap) | pending — waiting for `gh auth login` | — |
-| `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | pending | local PostgreSQL 16: full suite 1259 OK |
-| `474ea56a` | QR key fallbacks | pending | local full suite 1261 OK |
-| `073a456c` | private business documents, `MEDIA_ROOT`→`uploads/`, `/warehouses/lookup/` fix (migration `accounts 0013`, AlterField only; deploy steps `docs/runbooks/PRIVATE_FILES_DEPLOY.md`) | pending | local full suite 1270 OK |
+| `c384f7c3` | current `main` (closes the Phase 5 gap) | not runnable as an exact commit: its workflow had no manual trigger and the push filter skips commits already on `main`; covered by the `073a456c` and `27d6e005` runs (descendants) | — |
+| `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | in the `27d6e005` batch | local full suite 1259 OK |
+| `474ea56a` | QR key fallbacks | in the `27d6e005` batch | local full suite 1261 OK |
+| `073a456c` | private business documents, `MEDIA_ROOT`→`uploads/`, `/warehouses/lookup/` fix | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576904676 | **green** (local 1270 OK) |
+| `27d6e005` | **push batch head**: the 3 commits above + Tests workflow manual trigger. Migrations `shipping 0009`, `accounts 0013`. Backup `qbox-db-20261007-0602-c384f7c3.dump` (17.7 MB). Deploy steps `docs/runbooks/PRIVATE_FILES_DEPLOY.md` (step 1 done 06:05 UTC) | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576976972 | **green** — handed to the owner |
+| `c604eb49` | next batch: merchant document upload needs a one-time link (migration `accounts 0014`) + storage inventory doc | pending | local full suite 1283 OK |
 
 ## Phase status
 
