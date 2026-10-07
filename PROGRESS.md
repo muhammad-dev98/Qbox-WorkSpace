@@ -33,7 +33,7 @@ Latest full status: `docs/reports/STATUS_2026-10-07.md`; VPS: `docs/runbooks/VPS
 | `76b5a993` | item 4.1: PRs #13–#15 (`2914d96c` upload link + EMQX keys untracked, `96b1fceb` refund fix, `43c8544f` static outside repo), merged and deployed by the owner 07:14 UTC | deploy run on push | **deployed, checks OK** (0 errors / 20 min, `accounts 0014` applied, anonymous upload 403, `git status` empty); nginx `/static/` switched to `/var/www/qbox-static` 07:31 UTC |
 | `90f4221f` | section 1: one pipeline, new `deploy.sh` (backup before migrations, health gate, rollback), DEPLOY.md. No migrations | pushed by the owner | local full suite 1285 OK |
 | `b6e35ae3` + `03343b40` | pipeline without tests (owner decision) + deploy.sh SIGPIPE fix | owner push | **deployed 08:07 UTC, `result=ok`** |
-| `76d20cb0` | security: no wildcard CORS default + WHEP Location (`bcd69672`), `CORS_ORIGINS_EXACT` (`41680a23`), merchant bank/contact data exposure (`76d20cb0`). No migrations | owner push | local full suite running |
+| `76d20cb0` | security: no wildcard CORS default + WHEP Location (`bcd69672`), `CORS_ORIGINS_EXACT` (`41680a23`), merchant bank/contact data exposure (`76d20cb0`). No migrations | owner push | local full suite 1294 OK — **ready to push** |
 
 ## Phase status
 
