@@ -151,3 +151,30 @@ Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad
 - 2026-10-05 No tests on the VPS ever again (Hostinger CPU cap + outage). Crash-looping host services disabled; RabbitMQ health check lightened; deploys build before stopping the stack and run one at a time.
 - 2026-10-07 Status report written: `docs/reports/STATUS_2026-10-07.md`.
 - 2026-10-07 Stabilization round before Phase 7: daily backups (14 days) + restore test OK; cleanup done; DEBUG / rotation plans in `docs/runbooks/`.
+
+## Frontend (Qbox-Frontend-Panels) — panels prompt (2026-10-07)
+
+### §0 Repo preparation — done locally (not pushed)
+- **`wip/uncommitted-2026-10`** (pushed, `967fc92`): the other author's 56 uncommitted files from frontend `main`
+  (50 modified, 6 new), committed unchanged as a backup. Not merged. Contents: `/api/v1`-suffixed base URLs + an
+  interceptor that strips `/api/v1` (not taken), a sessionStorage token store (not taken), customers/warehouses
+  list and form fixes, Qbox settings page with device status / connectivity / cameras and a WHEP live view,
+  AlertModal and dialog/drawer UI fixes, staff phone normalization, service-provider panel edits.
+  Review per file (take / partial / drop): taken parts are listed in commit `33813ec` and `98b46ca`, `d344f53`.
+- Local `main` = `origin/main` + merges of `fix/merchant-canonical-shipments` and `feat/factory-plates-single-door`
+  (incl. `feat/factory-identity-stickers`) + typed API client (`f16d905`, OpenAPI snapshot + `pnpm check:api` in
+  CI) + halala/Riyadh-time helpers (`870a3aa`) + the taken WIP parts. All `test.qbox.sa` → `backend.qbox.sa`.
+  Checks: install, tokens, check:api, lint, typecheck, test, build — all pass.
+- Open: factory panel has almost no AR/RTL yet (merchant and superadmin have i18n + RTL).
+
+### §1 Service-provider removal
+- VPS done: `/var/www/Qbox-Service-Provider` archived (`/root/backups/old-code/Qbox-Service-Provider-20261007.tar.gz`,
+  copy on the development machine, checksum OK, deleted 2027-01-05 by cron) and deleted; nginx site removed
+  (backup `/etc/nginx/backup/service-provider.qbox.sa.<stamp>.bak`), certificate deleted (`certbot delete`), other
+  sites 200. **Owner: delete the DNS record `service-provider.qbox.sa` at Salla.**
+- Backend check: `driver`, `service_provider`, `deliveries` are tombstones (apps.py + models for migrations only);
+  no active code imports them; retired routes answer 410. Remaining mentions: retired-role lists
+  (`accounts/retired.py`, login rejection), legacy export command, archived enum values in `wallets` /
+  `commissions`. Proposal (not done): drop the three apps after squashing their migrations into a final
+  "delete tables" migration once the legacy data export is confirmed archived.
+- Frontend: in progress.
