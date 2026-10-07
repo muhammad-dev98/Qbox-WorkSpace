@@ -202,3 +202,20 @@ Checked against the database after the deploy:
 - **So no real customer document or photo was ever publicly exposed.** The only real evidence row (installation
   photo, 22 Sep) points to a file that no longer exists: it was lost when containers were recreated, because runtime
   uploads were not persisted before this deploy.
+
+---
+
+# Part 5 — merchant data exposure (found 2026-10-07 09:45 UTC while mapping merchant onboarding)
+
+- **`GET /auth/merchant/accounts` and `/api/v1/merchants/accounts/` were public** (no login) and returned, for all
+  **4 merchant accounts**: IBAN, account number, account holder, owner email and phone. nginx logs (14 days): no
+  request other than my two checks. **Closed in nginx 09:47 UTC** (404; backup `backend.qbox.sa.20261007-0947.bak`).
+- **Public merchant directory** (`/auth/merchants/public`, `/auth/merchant/<id>/public`) returned owner email and
+  phone for every merchant, pending ones included. No caller in the logs except my checks. Closed in nginx too.
+- **`POST /auth/merchant/store/create`** let any logged-in user overwrite any merchant's store and bank details
+  (user id from the request body). Not reachable anonymously; no exploitation evidence available (POST bodies are
+  not logged).
+- Code fix `76d20cb0` (merchant list super-admin only; directory = approved merchants, business fields only; store
+  create = own account or super admin). After it is deployed the nginx blocks can stay (no caller) or be removed.
+- Earlier the same day: CORS allowed any `*.ngrok-free.app` origin with credentials (fix `bcd69672`) and localhost
+  origins on the VPS (fix `41680a23` + `CORS_ORIGINS_EXACT=true`).
