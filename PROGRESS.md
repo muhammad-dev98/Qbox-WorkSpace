@@ -13,7 +13,14 @@ Repos: `Qbox-Backend` — **work directly on `main`** (owner decision 2026-10-05
 5. A bad deploy: `git revert`, gate, push. Never force-push or rewrite `main`.
 6. Frontend stays on branches until the other author's uncommitted frontend `main` files are committed (owner will say).
 
-## How gates run (2026-10-05, owner: no local Docker, all tests on the VPS)
+Latest full status: `docs/reports/STATUS_2026-10-07.md` (verified 2026-10-07).
+
+## How gates run — SUPERSEDED 2026-10-05: tests must NOT run on the VPS any more
+
+The VPS gates below triggered Hostinger's 20% CPU cap and a production outage on 2026-10-05. `/root/qbox-ci` was removed.
+Gates move to GitHub Actions once `gh` is logged in on this machine. The owner runs every push to `main`.
+
+Historical method:
 
 Per run the branch is uploaded with `git archive` to `/root/qbox-ci/runs/<name>` on the VPS and `/root/qbox-ci/run-gate.sh <run-dir> 2`
 runs: `check`, `makemigrations --check`, ruff (repo gate + strict list), full suite `--parallel 2` on a **fresh** test database
@@ -36,12 +43,14 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | Phase 1–2 re-gate | ✅ `19065122` (`feat/master-phases-1-2`), fresh DB: **Ran 1076, OK** |
 | 3 Access tokens v2 | contract proposal written (`contracts/api/locker-device-v2.md`), awaiting hardware approval; no code |
 | 4 Carriers | ✅ `phase/4-carriers` `04fd004c` (ADR 0007). **VPS gate 2026-10-05: Ran 1141, OK (skipped 23, expected failures 1), 2038 s**; check / makemigrations / ruff clean. `integration/master-phases` fast-forwarded to it |
-| 6 Payments | `phase/6-payments` `3208573e` (ADR 0008): one gateway interface, saved cards + consent, refund requests (maker-checker, wallet), charge adjustments, disputes + ledger, legacy-route usage report. Moyasar void/tokenize/saved-card charge are stubs until Moyasar confirms the APIs. Credit-hold generalization waits for the hotfix merge-forward. VPS gate running |
-| §1 Hardware reality | `phase/hw-reality` (on Phase 6): capability flags, `plate_number` + one code lookup (ADR 0005), printed-QR check + unverified-plates report + plate order sheet, single-door rules (occupancy, Qbox full / won't fit, collection confirmation, pickup warnings + owner block policy), single door always allocated (ADR 0004 amended) · FE `feat/factory-plates-single-door` (8 commits: lint / typecheck / 56 unit / build / 90 e2e route checks pass). Backend gate next |
-| `main` gate 2026-10-05 | owner merged the phase chain into `main` (`45ea9399`, deployed; tree = `phase/3-door-proof` `2dacdd44`). VPS gate: **Ran 1208, 4 failures + 2 errors** — 3 root causes, incl. a live 500 on `confirm-in-qbox` (FOR UPDATE on a nullable join). Fixed in `1bdca40a` (`fix/main-gate-failures`); targeted 198 OK; full gate running. Deploy check of `45ea9399`: healthy, 0 pending migrations, no errors, new beat jobs run |
+| 6 Payments | ✅ live (ADR 0008). Gate `bc371655`: Ran 1160 OK; strict lint failed on 2 lines, fixed `b7037ad2`. Moyasar void/tokenize/saved-card charge are stubs until Moyasar confirms the APIs. Credit-hold overlap with hotfix a: none needed |
+| §1 Hardware reality | `phase/hw-reality` (on Phase 6): capability flags, `plate_number` + one code lookup (ADR 0005), printed-QR check + unverified-plates report + plate order sheet, single-door rules (occupancy, Qbox full / won't fit, collection confirmation, pickup warnings + owner block policy), single door always allocated (ADR 0004 amended) · ✅ backend live · FE `feat/factory-plates-single-door` pushed, not merged (2026-10-07 re-check: lint / typecheck / 56 unit / build pass) |
+| `main` gate 2026-10-05 | owner merged the phase chain into `main` (`45ea9399`, deployed; tree = `phase/3-door-proof` `2dacdd44`). VPS gate: **Ran 1208, 4 failures + 2 errors** — 3 root causes, incl. a live 500 on `confirm-in-qbox` (FOR UPDATE on a nullable join). Fixed in `1bdca40a`: full gate Ran 1208 OK; pushed and deployed. Deploy check of `45ea9399`: healthy, 0 pending migrations, no errors, new beat jobs run |
 | 3 (no firmware) | ✅ in `main`: proof levels, driver door-closed, owner confirmation, SecurityIncident + back office, batched events (provisional, accepted by owner), token_format (ADR 0009). Remainder waits for hardware approval |
 | Release R hotfixes on `main` | cherry-picked onto `1bdca40a` (local, not pushed): b VAT; c repair command + audit (c's fix and test were already in `main` via Phase 1); a credit release + 2150 holds, merged through the Phase 1 state machines (no raw status writes). Credit-hold overlap with Phase 6: none needed — adjustment orders carry no credit and credit-paid adjustments post immediately. **Production dry run of `repair_orphan_payment_postings` (read-only session): affected orders 0.** No migrations |
-| 5, 7–13 | not started |
+| 5 Inbound + portal (backend) | ✅ live in `cda3b693` (ADR 0010): new inbound states, late arrival, owner second factor, portal sessions, ask-owner. **Only a targeted 74-test run, no full gate** — run one on GitHub. Portal app (FE) waits for frontend `main` cleanup |
+| Production 2026-10-07 | `origin/main` = VPS = `c384f7c3`; health 200, 0 pending migrations, 0 app errors in 24 h; **DEBUG=true** still |
+| 7–13 | not started |
 
 ## Key finding
 
@@ -134,3 +143,6 @@ Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad
 - 2026-10-05 Owner: backend work directly on `main` under the "Rules for backend main" (replaces branch-per-phase); frontend stays on branches.
 - 2026-10-05 Owner: provisional v2 batched-events endpoint accepted as is.
 - 2026-10-05 `QBOX_DEGRADED_OWNER_CONFIRMATION` (default on): owner prompt for DEGRADED deliveries, switchable without a deploy.
+- 2026-10-05 Owner: the owner runs every push to `main`; I prepare gated batches and run the post-deploy checks.
+- 2026-10-05 No tests on the VPS ever again (Hostinger CPU cap + outage). Crash-looping host services disabled; RabbitMQ health check lightened; deploys build before stopping the stack and run one at a time.
+- 2026-10-07 Status report written: `docs/reports/STATUS_2026-10-07.md`.
