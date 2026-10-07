@@ -9,9 +9,9 @@ work stays on branches until the owner says otherwise.
 
 1. One branch, `main`; logical local commits. No gate/integration/phase branches (deleted 2026-10-07).
    **No pre-push hooks** (removed 2026-10-07 from backend, workspace and frontend repos).
-2. The owner pushes `main`; `.github/workflows/deploy.yml` runs the full test suite on GitHub, then deploys
-   (`deploy.sh`: backup before migrations, health gate, automatic rollback, `/var/log/qbox-deploy.log`).
-   Pull requests: `pr.yml` (tests only). Details: `Qbox-Backend/docs/runbooks/DEPLOY.md`.
+2. The owner pushes `main`; `.github/workflows/deploy.yml` **only builds and deploys — no tests in CI** (owner
+   decision 2026-10-07). `deploy.sh`: backup before migrations, health gate, automatic rollback,
+   `/var/log/qbox-deploy.log`. Details: `Qbox-Backend/docs/runbooks/DEPLOY.md`.
 3. Before handing over a push: full suite locally (throwaway PostgreSQL) → "ready to push <sha>": contents, migrations,
    backup file if migrations. One push per finished item of the final prompt §4.
 4. **Never run tests on the VPS.** Never print secret values: check secrets only with a length-only script.
@@ -31,7 +31,8 @@ Latest full status: `docs/reports/STATUS_2026-10-07.md`; VPS: `docs/runbooks/VPS
 | `c604eb49` | upload link for merchant documents (migration `accounts 0014`) + storage inventory doc | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37579437556 | green (local 1283 OK) |
 | `2914d96c` | old EMQX keys untracked; `.env.example` R2 names only (batch head incl. `c604eb49`; migration `accounts 0014`) | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37580811221 | green; owner opened PR #13 07:10 UTC; backup `qbox-db-20261007-0711-27d6e005.dump` (17.7 MB) |
 | `76b5a993` | item 4.1: PRs #13–#15 (`2914d96c` upload link + EMQX keys untracked, `96b1fceb` refund fix, `43c8544f` static outside repo), merged and deployed by the owner 07:14 UTC | deploy run on push | **deployed, checks OK** (0 errors / 20 min, `accounts 0014` applied, anonymous upload 403, `git status` empty); nginx `/static/` switched to `/var/www/qbox-static` 07:31 UTC |
-| `90f4221f` | section 1: one pipeline (`deploy.yml` tests→deploy, `pr.yml`), new `deploy.sh` (backup before migrations, health gate, rollback), DEPLOY.md. No migrations | first run on the owner's push | local full suite 1285 OK — **ready to push** |
+| `90f4221f` | section 1: one pipeline, new `deploy.sh` (backup before migrations, health gate, rollback), DEPLOY.md. No migrations | pushed by the owner | local full suite 1285 OK |
+| `b6e35ae3` | pipeline without tests (owner decision): `deploy.yml` deploy job only, `pr.yml` removed | — | ready to push |
 
 ## Phase status
 
