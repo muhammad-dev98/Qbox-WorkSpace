@@ -177,3 +177,28 @@ it have network, what does its local log say. No device-side settings were chang
 
 `docs/runbooks/OLD_PANELS_NOTICE.md`: one static bilingual page, the nginx `root` swap for merchant, super-admin and
 service-provider, verification and a 1-minute rollback. Replace the support contact before applying.
+
+---
+
+# Part 4 — deploy of `27d6e005` (7 Oct, 06:26 UTC push by the owner)
+
+- Deploy run https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37581474919 — success. Deployed commit =
+  `origin/main` = `27d6e005`. Backup before: `qbox-db-20261007-0602-c384f7c3.dump` (17.7 MB).
+- Rule 4: `/health/live/` and `/health/ready/` 200; 0 pending migrations (`shipping 0009`, `accounts 0013` applied);
+  all containers up/healthy; `DEBUG=False`; `MEDIA_ROOT=/app/uploads`, `QBOX_PRIVATE_MEDIA_ROOT=/app/private_media`.
+- Smoke: forged private-file link 401 (anonymous); `/warehouses/lookup/` 401 without login (was 500); portal
+  `/d/FFK-262` 200; static 200; `/api/docs/` 200; wrong login clean 401.
+- `PRIVATE_FILES_DEPLOY.md` step 3 done 06:39 UTC: nginx `/media/` aliases → `uploads/` (backup
+  `backend.qbox.sa.20261007-0639.bak`). `/media/models.py`, `/media/__init__.py`, business-document paths → 403;
+  `/media/qrcodes/…`, `/media/install-….jpg` → 200.
+
+## Correction: what was actually exposed
+
+Checked against the database after the deploy:
+- **The 6 "business document" PDFs are test fixtures** (12–19 bytes, text like `%PDF-1.4 commercial…`, all dated
+  18 Sep — the test runs that were still executed on the VPS then). **No `MerchantBusinessDocuments` row exists in
+  production.**
+- **The 55 evidence files are test fixtures too** (`photo.jpg` 132 bytes, `handover.jpg` 68 bytes, all 18 Sep).
+- **So no real customer document or photo was ever publicly exposed.** The only real evidence row (installation
+  photo, 22 Sep) points to a file that no longer exists: it was lost when containers were recreated, because runtime
+  uploads were not persisted before this deploy.

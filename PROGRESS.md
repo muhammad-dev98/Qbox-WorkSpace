@@ -40,8 +40,11 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | in the `27d6e005` batch | local full suite 1259 OK |
 | `474ea56a` | QR key fallbacks | in the `27d6e005` batch | local full suite 1261 OK |
 | `073a456c` | private business documents, `MEDIA_ROOT`→`uploads/`, `/warehouses/lookup/` fix | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576904676 | **green** (local 1270 OK) |
-| `27d6e005` | **push batch head**: the 3 commits above + Tests workflow manual trigger. Migrations `shipping 0009`, `accounts 0013`. Backup `qbox-db-20261007-0602-c384f7c3.dump` (17.7 MB). Deploy steps `docs/runbooks/PRIVATE_FILES_DEPLOY.md` (step 1 done 06:05 UTC) | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576976972 | **green** — handed to the owner |
-| `c604eb49` | next batch: merchant document upload needs a one-time link (migration `accounts 0014`) + storage inventory doc | pending | local full suite 1283 OK |
+| `27d6e005` | private files + rotation + QR fallbacks + Tests manual trigger. Migrations `shipping 0009`, `accounts 0013` | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576976972 | **green; pushed by the owner 06:26 UTC, deployed (run 37581474919), rule 4 checks OK** |
+| `c604eb49` | upload link for merchant documents (migration `accounts 0014`) + storage inventory doc | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37579437556 | green (local 1283 OK) |
+| `2914d96c` | old EMQX keys untracked; `.env.example` R2 names only (batch head incl. `c604eb49`; migration `accounts 0014`) | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37580811221 | green; owner opened PR #13 07:10 UTC; backup `qbox-db-20261007-0711-27d6e005.dump` (17.7 MB) |
+| `96b1fceb` | refund fix: stray orphan-refund audit call (credit-only refunds crashed) | run 37584270003 cancelled 07:10 UTC (not by a failure) | local refund tests 37 OK; rerun pending |
+| `43c8544f` | static files outside the repo; deploy re-execs the pulled script (pre-push step: `docs/runbooks/STATIC_OUTSIDE_REPO.md`) | run 37584552297 cancelled 07:10 UTC | rerun pending |
 
 ## Phase status
 
