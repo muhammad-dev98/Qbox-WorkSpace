@@ -58,3 +58,36 @@ OTPs and pending device commands break.
 Keep each old value for a day in a root-only file on the VPS (`/root/backups/env.development.<timestamp>`) so a rotation
 can be rolled back by restoring the env file and recreating the apps. Git history still contains the old values; after
 rotation they are useless. Purging history is a separate decision.
+
+## Database password (PostgreSQL role `qbox_development`) — quiet hour, ~10 minutes
+
+Why: copies of the password sat in old CI env files on the VPS (root-only, deleted 2026-10-07). Rotate it once.
+
+Who uses it (`docker-compose.development.yml`, all from `.env.development`): web, websocket, worker, beat,
+mqtt-consumer, mqtt-publisher, the one-shots migrate / mqtt-bootstrap, and **EMQX** (device and backend MQTT logins
+are checked against PostgreSQL, so EMQX must get the new value too). The `db` container itself does not need a restart:
+`POSTGRES_PASSWORD` is only read when the database is first created. The nightly backup uses the container's local
+socket and is not affected.
+
+1. **Backup**: `/root/qbox-ops/backup-daily.sh` and
+   `cp -p /var/www/Qbox-Back-End/.env.development /root/backups/env.development.$(date -u +%Y%m%d-%H%M)`.
+2. **New password** (hex only — no quoting problems in the env file or the EMQX config):
+   `openssl rand -hex 32` — keep it in your password manager; do not paste it into a chat.
+3. **Change it in PostgreSQL** (interactive, so it never lands in shell history):
+   `docker exec -it qbox-development-db psql -U qbox_development -d qbox_development` → `\password qbox_development`
+   → enter the new value twice → `\q`. Connections that are already open keep working; new ones need the new value.
+4. **Change it in `.env.development`** (both keys hold the same value): `DB_PASSWORD=<new>` and
+   `POSTGRES_PASSWORD=<new>`.
+5. **Recreate everything that connects** (about 1 minute; lockers reconnect to MQTT on their own):
+   `cd /var/www/Qbox-Back-End && docker compose -f docker-compose.development.yml up -d --no-deps --force-recreate emqx web websocket worker beat mqtt-consumer mqtt-publisher`
+6. **Verify**:
+   - `curl -s -o /dev/null -w '%{http_code}' https://backend.qbox.sa/health/ready/` → `200`;
+   - `docker logs --since 10m qbox-development-db 2>&1 | grep -c 'password authentication failed'` → `0`;
+   - `docker ps` shows mqtt-consumer / mqtt-publisher / web `healthy`;
+   - `docker logs --since 10m qbox-development-emqx 2>&1 | grep -ci 'authentication.*fail\|bad_username_or_password'` → `0`;
+   - `docker logs --since 10m qbox-development-worker 2>&1 | grep -c 'succeeded in'` > 0;
+   - the next deploy (or `docker compose ... run --rm migrate`) connects without errors.
+7. **Rollback** (if anything fails to connect): put the old value back in PostgreSQL (`\password` as in step 3, with
+   the value from the env backup), restore the env file (`cp -p /root/backups/env.development.<stamp>
+   /var/www/Qbox-Back-End/.env.development`), repeat step 5.
+8. After a day without problems: delete the env backup from step 1 (it holds the old password).

@@ -1,38 +1,25 @@
 # QBox master prompt — progress
 
-Spec: workspace `QBOX_AGENT_MASTER_PROMPT.md` (§15 owner decisions override earlier sections).
-Phases spec: `QBOX_PHASES_3_TO_13_PROMPT.md` (overrides the master prompt where they differ).
-Repos: `Qbox-Backend` — **work directly on `main`** (owner decision 2026-10-05, rules below). `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend work stays on branches until the owner says otherwise.
+Process (from 2026-10-07): **`QBOX_FINAL_COMPLETION_PROMPT.md`** — it replaces the process rules of all earlier
+prompts; the master, phases 3–13 and R2 prompts remain feature descriptions only.
+Repos: `Qbox-Backend` on `main`. `Qbox-Frontend-Panels` — `main` carries another author's uncommitted work, so frontend
+work stays on branches until the owner says otherwise.
 
-## Rules for backend `main` (owner, 2026-10-05) — every push deploys to the VPS, which has real customer data
+## How we work (2026-10-07)
 
-1. Commit on local `main` in small, logical commits. The pre-push hook stays; use `QBOX_ALLOW_PUSH_TO_MAIN=1` only when rule 2 is met.
-2. Push only when the full VPS gate (check, makemigrations, ruff, full suite on a fresh DB) passed for the **exact commit** being pushed. Never push with a failing test. About one push per finished phase or fix.
-3. Before a push that contains migrations: `pg_dump` production on the VPS to `/root/backups/<date>-<commit>.sql.gz` and confirm the size. Migrations backward compatible (additive first, no column drops in the same release).
-4. After every push: wait for the deploy, check health/live, health/ready, 0 pending migrations, web/worker/beat logs for 15 minutes, smoke-test the new endpoints; report.
-5. A bad deploy: `git revert`, gate, push. Never force-push or rewrite `main`.
-6. Frontend stays on branches until the other author's uncommitted frontend `main` files are committed (owner will say).
-7. (2026-10-07) **No push batch without a green GitHub Actions run for that exact commit.** The run link goes in the
-   "Gate runs" table below — no more gate logs that can be deleted. The owner runs every push to `main`.
+1. One branch, `main`; logical local commits. No gate/integration/phase branches (deleted 2026-10-07).
+   **No pre-push hooks** (removed 2026-10-07 from backend, workspace and frontend repos).
+2. The owner pushes `main`; `.github/workflows/deploy.yml` runs the full test suite on GitHub, then deploys
+   (`deploy.sh`: backup before migrations, health gate, automatic rollback, `/var/log/qbox-deploy.log`).
+   Pull requests: `pr.yml` (tests only). Details: `Qbox-Backend/docs/runbooks/DEPLOY.md`.
+3. Before handing over a push: full suite locally (throwaway PostgreSQL) → "ready to push <sha>": contents, migrations,
+   backup file if migrations. One push per finished item of the final prompt §4.
+4. **Never run tests on the VPS.** Never print secret values: check secrets only with a length-only script.
+5. A bad deploy rolls back by itself; fix forward or `git revert` + push. Never force-push `main`.
 
-Latest full status: `docs/reports/STATUS_2026-10-07.md` (verified 2026-10-07).
+Latest full status: `docs/reports/STATUS_2026-10-07.md`; VPS: `docs/runbooks/VPS_LAYOUT.md`.
 
-## How gates run — SUPERSEDED 2026-10-05: tests must NOT run on the VPS any more
-
-The VPS gates below triggered Hostinger's 20% CPU cap and a production outage on 2026-10-05. `/root/qbox-ci` was removed.
-Gates run on GitHub Actions (gh logged in 2026-10-07): push `gate/<sha>` for an exact commit, or `gh workflow run test.yml --ref gate/<sha>`. The owner runs every push to `main`.
-
-Historical method:
-
-Per run the branch is uploaded with `git archive` to `/root/qbox-ci/runs/<name>` on the VPS and `/root/qbox-ci/run-gate.sh <run-dir> 2`
-runs: `check`, `makemigrations --check`, ruff (repo gate + strict list), full suite `--parallel 2` on a **fresh** test database
-(`qbox_ci_<run>_test`) in the existing `qbox-test-db` container, capped at 1.5 CPU / 3 GB so production keeps headroom (VPS has 2 cores).
-Image `qbox-ci-base` = the dev image + test tools (arabic-reshaper, python-bidi, ruff 0.14.0, tblib). Env: `/root/qbox-ci/env.base` (chmod 600, CI-only values).
-Never touches `/var/www/Qbox-Back-End`. A full run takes ~37 min.
-Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Frontend-Panels/docs/CURRENT_STATE.md`,
-`Qbox-Backend/docs/adr/0001-evolve-existing-platform-to-master-prompt.md`.
-
-## Gate runs (GitHub Actions, one row per push batch)
+## Push log (newest last)
 
 | Commit | What | Run link | Result |
 |---|---|---|---|
@@ -43,8 +30,8 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | `27d6e005` | private files + rotation + QR fallbacks + Tests manual trigger. Migrations `shipping 0009`, `accounts 0013` | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37576976972 | **green; pushed by the owner 06:26 UTC, deployed (run 37581474919), rule 4 checks OK** |
 | `c604eb49` | upload link for merchant documents (migration `accounts 0014`) + storage inventory doc | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37579437556 | green (local 1283 OK) |
 | `2914d96c` | old EMQX keys untracked; `.env.example` R2 names only (batch head incl. `c604eb49`; migration `accounts 0014`) | https://github.com/Hegmon-2/Qbox-Back-End/actions/runs/37580811221 | green; owner opened PR #13 07:10 UTC; backup `qbox-db-20261007-0711-27d6e005.dump` (17.7 MB) |
-| `96b1fceb` | refund fix: stray orphan-refund audit call (credit-only refunds crashed) | run 37584270003 cancelled 07:10 UTC (not by a failure) | local refund tests 37 OK; rerun pending |
-| `43c8544f` | static files outside the repo; deploy re-execs the pulled script (pre-push step: `docs/runbooks/STATIC_OUTSIDE_REPO.md`) | run 37584552297 cancelled 07:10 UTC | rerun pending |
+| `76b5a993` | item 4.1: PRs #13–#15 (`2914d96c` upload link + EMQX keys untracked, `96b1fceb` refund fix, `43c8544f` static outside repo), merged and deployed by the owner 07:14 UTC | deploy run on push | **deployed, checks OK** (0 errors / 20 min, `accounts 0014` applied, anonymous upload 403, `git status` empty); nginx `/static/` switched to `/var/www/qbox-static` 07:31 UTC |
+| `90f4221f` | section 1: one pipeline (`deploy.yml` tests→deploy, `pr.yml`), new `deploy.sh` (backup before migrations, health gate, rollback), DEPLOY.md. No migrations | first run on the owner's push | local full suite 1285 OK — **ready to push** |
 
 ## Phase status
 
