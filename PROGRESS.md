@@ -177,4 +177,17 @@ Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad
   (`accounts/retired.py`, login rejection), legacy export command, archived enum values in `wallets` /
   `commissions`. Proposal (not done): drop the three apps after squashing their migrations into a final
   "delete tables" migration once the legacy data export is confirmed archived.
-- Frontend: in progress.
+- Frontend done (`bb5c440`): panel deleted (243 files), superadmin service-provider/driver screens, routes, columns, locale keys removed; shared roles cleaned; lockfile without its dependencies; all checks pass.
+
+### §2 Frontend pipeline + go-live — done
+- `deploy.yml` (push to main): checks + build, then merchant and superadmin released to
+  `/var/www/qbox-panels/<app>/releases/<sha>/`, atomic `current` switch, health check, rollback, 5 releases
+  (`fd26622`, `docs/runbooks/FRONTEND_DEPLOY.md`). Deploy user `qbox-deploy` (own SSH key in the repo secrets
+  `VPS_DEPLOY_SSH_KEY`, pinned host key). `ci.yml` = pull requests only.
+- **Live since 2026-10-07 09:34 UTC**: merchant.qbox.sa and super-admin.qbox.sa serve the new panels (initial
+  release built locally from `bb5c440`; the pipeline replaces it on the first push). Checked: pages, deep links,
+  assets 200, CSP/HSTS headers, superadmin `/api` proxy, wrong-login 401 through both panels.
+- Old August builds archived (`/root/backups/old-code/*-20261007.tar.gz`, copies here, checksums OK) and removed.
+- Backend CORS/CSRF env: exactly `https://merchant.qbox.sa`, `https://super-admin.qbox.sa` (+ backend for CSRF),
+  `CORS_ORIGINS_EXACT=true`. Takes full effect when backend `41680a23` (and `bcd69672`: no ngrok default) are pushed.
+- Factory panel: built and checked, not deployed. Proposal: `factory-panel.qbox.sa` (owner decides; DNS + certificate).

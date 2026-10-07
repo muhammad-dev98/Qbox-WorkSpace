@@ -10,7 +10,7 @@ Ubuntu, 2 vCPU (Hostinger CPU cap: sustained load shows as CPU steal — never r
 | `/var/www/Qbox-Back-End/.env.development` | All runtime secrets and settings (`chmod 600`, not in git) | read by compose |
 | `/var/www/Qbox-Back-End/uploads`, `private_media`, `media/` (data only) | Uploaded files (public / private) and the old media data | bind mounts; **removed when R2 replaces them** |
 | `/var/www/qbox-static` | Django static files (collectstatic output, written by `deploy.sh`) | served by nginx `/static/` |
-| `/var/www/Qbox-Merchant-panel`, `Qbox-Super-Admin`, `Qbox-Service-Provider` | August panel builds (`dist/`) | nginx static sites; kept until the owner decides |
+| `/var/www/qbox-panels/<app>/releases/<sha>/`, `current` → live release | Merchant and superadmin panels (static exports), last 5 releases, `deploy.log` per app | deployed by the frontend pipeline as user **`qbox-deploy`** (SSH key only, writes only here); nginx serves `current` (`Qbox-Frontend-Panels/docs/runbooks/FRONTEND_DEPLOY.md`) |
 | `/var/www/qbox-inspection-portal` | Factory inspection portal (Next.js) | PM2 `inspection-portal`, port 3001, `factory.qbox.sa` (HTTP) |
 | `/opt/qbox-relay-agent` | Camera relay enrollment agent | systemd `qbox-relay-agent` (port 19100 on the docker bridge) |
 | — | Media relay bridge | systemd `qbox-media-relay-bridge` (socat 172.17.0.1:18889 → 127.0.0.1:18889) |
@@ -27,8 +27,9 @@ Volumes: `qbox-development_*` (postgres, redis, rabbitmq, minio, emqx-certs, emq
 ## nginx (`/etc/nginx/sites-enabled`)
 
 `backend.qbox.sa` (API, `/static/` → `/var/www/qbox-static`, `/media/` → `uploads/` with private paths denied, EMQX
-dashboard behind basic auth), `merchant.` / `super-admin.` / `service-provider.qbox.sa` (old panels),
-`factory.qbox.sa`. Device CA copy for mTLS: `/etc/nginx/qbox-certs/device-ca.crt`. Config backups before each change:
+dashboard behind basic auth), `merchant.qbox.sa` and `super-admin.qbox.sa` (new panels, CSP + security headers from
+`/etc/nginx/snippets/qbox-panel-headers.conf`; superadmin proxies `/api` to the backend), `factory.qbox.sa`
+(inspection portal). `service-provider.qbox.sa` removed 2026-10-07 (site, certificate, folder). Device CA copy for mTLS: `/etc/nginx/qbox-certs/device-ca.crt`. Config backups before each change:
 `/etc/nginx/backup/<site>.<UTC stamp>.bak`.
 
 ## Operations (`/root/qbox-ops`, `chmod 700`)
@@ -43,7 +44,7 @@ dashboard behind basic auth), `merchant.` / `super-admin.` / `service-provider.q
 ## Backups (`/root/backups`, `chmod 700`)
 
 `daily/` (14 days), `old-dbs/` (old smart_locker dump, deleted 2027-01-05 by `/etc/cron.d/qbox-old-dump-expiry`),
-`old-code/` (archived stage folders, deleted 2027-01-05 by `/etc/cron.d/qbox-old-code-expiry`; copies on the
+`old-code/` (archived stage folders and the old panel builds, deleted 2027-01-05 by `/etc/cron.d/qbox-old-code-expiry`; copies on the
 development machine), `env.development.*` (env copies before changes). Off-site encrypted copies to R2: R2 item.
 
 ## Logs
