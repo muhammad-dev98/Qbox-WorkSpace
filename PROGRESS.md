@@ -12,6 +12,8 @@ Repos: `Qbox-Backend` — **work directly on `main`** (owner decision 2026-10-05
 4. After every push: wait for the deploy, check health/live, health/ready, 0 pending migrations, web/worker/beat logs for 15 minutes, smoke-test the new endpoints; report.
 5. A bad deploy: `git revert`, gate, push. Never force-push or rewrite `main`.
 6. Frontend stays on branches until the other author's uncommitted frontend `main` files are committed (owner will say).
+7. (2026-10-07) **No push batch without a green GitHub Actions run for that exact commit.** The run link goes in the
+   "Gate runs" table below — no more gate logs that can be deleted. The owner runs every push to `main`.
 
 Latest full status: `docs/reports/STATUS_2026-10-07.md` (verified 2026-10-07).
 
@@ -29,6 +31,13 @@ Image `qbox-ci-base` = the dev image + test tools (arabic-reshaper, python-bidi,
 Never touches `/var/www/Qbox-Back-End`. A full run takes ~37 min.
 Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Frontend-Panels/docs/CURRENT_STATE.md`,
 `Qbox-Backend/docs/adr/0001-evolve-existing-platform-to-master-prompt.md`.
+
+## Gate runs (GitHub Actions, one row per push batch)
+
+| Commit | What | Run link | Result |
+|---|---|---|---|
+| `c384f7c3` | current `main` (closes the Phase 5 gap) | pending — waiting for `gh auth login` | — |
+| `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | pending | local PostgreSQL 16: 166 related tests OK, full local run in progress |
 
 ## Phase status
 
@@ -146,3 +155,4 @@ Backend: `…/scratchpad/gate4` (detached `04fd004c`). Frontend: `…/scratchpad
 - 2026-10-05 Owner: the owner runs every push to `main`; I prepare gated batches and run the post-deploy checks.
 - 2026-10-05 No tests on the VPS ever again (Hostinger CPU cap + outage). Crash-looping host services disabled; RabbitMQ health check lightened; deploys build before stopping the stack and run one at a time.
 - 2026-10-07 Status report written: `docs/reports/STATUS_2026-10-07.md`.
+- 2026-10-07 Stabilization round before Phase 7: daily backups (14 days) + restore test OK; cleanup done; DEBUG / rotation plans in `docs/runbooks/`.
