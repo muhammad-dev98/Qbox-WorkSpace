@@ -109,3 +109,71 @@ and no customer-facing endpoint accepts it.
 
 Fallback-key support is in commit `474ea56a` (local, not pushed). Rotate the key, keep the public key as a fallback
 only until the 2 installed labels are reprinted, then remove it. The safety check flags it while it is still listed.
+
+---
+
+# Part 3 — owner decisions of 7 Oct (round 3)
+
+## 1. Private files ("ID card exposure")
+
+**Correction to part 2:** there are **no ID cards on the VPS**. `media/id_cards/` exists only on a developer machine.
+What the VPS really served publicly from the `media` app folder:
+- `media/merchant/business-documents/`: **6 PDFs** (commercial registration, tax certificate, national address of
+  merchant applications);
+- `media/media_uploads/`: 55 photos;
+- the `media` app's source code (`*.py`, `migrations/`).
+
+**Blocked now** (nginx `deny all`, regex locations for both `/media/` and `/api/media/`, covering `id_cards`,
+`merchant/business-documents`, `media_uploads`, `migrations`, `__pycache__`, `*.py`):
+- `nginx -t` OK; backup `/etc/nginx/backup/backend.qbox.sa.20261007-0402.bak`.
+- Verified: 403 on both prefixes for each blocked path; normal media (`qbox_images`, `qrcodes`) still 200.
+
+**Who downloaded them:** nginx logs cover 23 Sep – 7 Oct (all retained). The only requests to these paths are my
+own 3 checks from `103.229.253.77`. **No download from outside `103.229.253.64/27`.** Before 23 Sep it cannot be
+checked (logs rotated away).
+
+**Found while fixing:**
+- **Anyone could submit or replace a merchant's business documents** without login
+  (`merchant_business_documents_by_id`, by merchant ID). It is still open; it is part of the application flow before the
+  merchant has a login, so closing it is a product decision. Proposal: require the applicant's OTP session or a one-time
+  link. With the batch, the endpoint no longer returns download links to anonymous callers.
+- **Uploads were never persisted:** the containers had no media volume, so anything uploaded at runtime was lost on
+  every deploy. The images contained the host `media/` folder through `COPY .`. Only 1 file reference in the DB, so
+  little was lost.
+
+**Code batch (local main, tested, not pushed):** private storage and signed links for the business documents;
+`MEDIA_ROOT` → `uploads/` (bind mount, survives deploys); `/warehouses/lookup/` fixed (login required, own
+warehouses only, no 500); tests use temporary media folders. Deploy steps and rollback:
+`docs/runbooks/PRIVATE_FILES_DEPLOY.md`. `backup-daily.sh` now also tars `uploads/` and `private_media/` once they exist.
+
+## 2. Lockers offline since 3 October
+
+| Device | What it is | Last seen |
+|---|---|---|
+| `ELF-484` | **The only physical locker.** Real certificate (valid to 2027-09-19). Assigned to a merchant account with the reason "ELF-484-merchant-test"; installation completed 21 Sep. Not a paying customer. | 3 Oct 15:24 UTC |
+| `QBT001`, `QBT002` | Test records on homeowner accounts | — |
+| `FFK-262`, `ZVD-337` | Test records, never connected (their installation orders show COMPLETED on 27 Sep — test data) | never |
+| `QBOX-TEARDOWN-CHECK-01` | Factory unit | — |
+
+**No locker is installed at a real customer.**
+
+Why `ELF-484` is offline, server side checked:
+- It went silent on 3 Oct 15:24 UTC. **No deploy, restart or config change happened between 2 Oct and 5 Oct 01:47**,
+  so nothing on the server changed at that moment.
+- EMQX since its restart on 5 Oct: **no connection attempt from any locker, no TLS or authentication error**. A locker
+  that tried with a bad certificate or password would show up there.
+- Port 8883 is reachable from outside. The server certificate (reissued 5 Oct) chains to the **unchanged CA** (since
+  4 Sep) and names `backend.qbox.sa`; a TLS handshake verifies OK.
+- Today's EMQX change only touched the dashboard (password, basic auth in nginx); MQTT listeners and device
+  credentials are unchanged. The backend's own MQTT clients connect fine.
+
+**Conclusion: the locker is not reaching the server at all** — power, network/SIM, or the device itself.
+The 5 Oct rebuild cannot be the cause (it came 2 days later). Someone needs to look at the unit: is it powered, does
+it have network, what does its local log say. No device-side settings were changed.
+
+## 3. IP allowlist — skipped, basic auth stays.
+
+## 4. Old panels — notice page prepared, not applied
+
+`docs/runbooks/OLD_PANELS_NOTICE.md`: one static bilingual page, the nginx `root` swap for merchant, super-admin and
+service-provider, verification and a 1-minute rollback. Replace the support contact before applying.

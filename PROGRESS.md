@@ -37,7 +37,9 @@ Phase 0 documents: `Qbox-Backend/docs/architecture/CURRENT_STATE.md`, `Qbox-Fron
 | Commit | What | Run link | Result |
 |---|---|---|---|
 | `c384f7c3` | current `main` (closes the Phase 5 gap) | pending — waiting for `gh auth login` | — |
-| `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | pending | local PostgreSQL 16: 166 related tests OK, full local run in progress |
+| `99bb9edf` | stabilization batch: rotation support, safety check, AfterShip mapping fix | pending | local PostgreSQL 16: full suite 1259 OK |
+| `474ea56a` | QR key fallbacks | pending | local full suite 1261 OK |
+| `073a456c` | private business documents, `MEDIA_ROOT`→`uploads/`, `/warehouses/lookup/` fix (migration `accounts 0013`, AlterField only; deploy steps `docs/runbooks/PRIVATE_FILES_DEPLOY.md`) | pending | local full suite 1270 OK |
 
 ## Phase status
 
